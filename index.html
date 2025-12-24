@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HematoVision - QFB. Ibrahim Rodriguez Marroquin</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel para compilar JSX en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #09090b; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #18181b; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #dc2626; }
+        .micro-overlay {
+            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%);
+        }
+        .img-zoom:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const Icon = ({ name, size = 20, className = "" }) => {
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        // NOTA: Para que las imágenes funcionen en VSCode, crea una carpeta llamada "img" 
+        // junto a este archivo y guarda las fotos como 1.jpg, 2.jpg, etc.
+        const DATABASE = [
+            {
+                id: 1, cat: 'Mieloide', name: "LMC BCR-ABL1+ (Fase Acelerada)",
+                params: "Leucocitosis masiva (>100 x 10⁹/L) con basofilia progresiva (≥20%). Trombocitopenia refractaria (<100k) o trombocitosis persistente (>1000k). Esplenomegalia dolorosa que no responde a ITK.",
+                morph: "Sangre Periférica (SP): Blastos 10-19%. Desviación a la izquierda completa (mielocitos, metamielocitos). Cifra de basófilos absoluta aumentada. Médula Ósea (MO): Hipercelularidad extrema con relación M:E de hasta 20:1.",
+                studies: "Citogenética: t(9;22)(q34.1;q11.2) - Cromosoma Filadelfia (Ph). Molecular: Cuantificación de transcritos p210 (b2a2/b3a2) mediante RT-qPCR.",
+                algo: "Diferenciar de Fase Blástica (blastos ≥20%). Evolución clonal frecuente (trisomía 8, duplicación de Ph).",
+                imgUrl: "./img/1.jpg",
+                imgDesc: "Frotis de sangre periférica mostrando marcada leucocitosis con predominio de formas mieloides intermedias y basofilia acompañante."
+            },
+            {
+                id: 2, cat: 'Mieloide', name: "Trombocitemia Esencial (TE)",
+                params: "Plaquetosis sostenida ≥450 x 10⁹/L. Complicaciones trombóticas (microvasculares, eritromelalgia) o hemorrágicas (si plaquetas >1500k por Von Willebrand adquirido).",
+                morph: "MO: Proliferación de megacariocitos grandes a gigantes con núcleos hiperlobulados ('nube' o 'asta de ciervo'), organizados en cúmulos. No hay desviación a la izquierda significativa.",
+                studies: "Molecular: Mutación JAK2 V617F (55%), CALR (25%), o MPL (5%). Biopsia de MO: Ausencia de fibrosis reticulínica (Grado 0-1).",
+                algo: "Excluir Policitemia Vera (Hb/Hto normal) y Fibrosis Pre-fibrótica (hiperplasia mieloide).",
+                imgUrl: "./img/2.jpg",
+                imgDesc: "Médula ósea con megacariocitos de morfología gigante y núcleos complejos hiperlobulados en acúmulos."
+            },
+            {
+                id: 3, cat: 'Mieloide', name: "Leucemia Eosinofílica Crónica (LEC-NOS)",
+                params: "Eosinofilia absoluta persistente ≥1.5 x 10⁹/L con daño a órganos diana (endocarditis de Loeffler, fibrosis pulmonar, neuropatía).",
+                morph: "Eosinófilos con anomalías granulares, hiposegmentación o núcleos anómalos. MO: >20% de eosinófilos. Blastos <20%.",
+                studies: "Exclusión obligatoria de reordenamientos PDGFRA, PDGFRB, FGFR1, PCM1-JAK2. Citogenética para detectar trisomía 8.",
+                algo: "Si hay t(5;12) o similares, tratar con Imatinib (Neoplasias mieloide/linfoide con eosinofilia).",
+                imgUrl: "./img/3.jpg",
+                imgDesc: "Eosinófilos con granulación anómala y núcleos displásicos en frotis de sangre periférica."
+            },
+            {
+                id: 4, cat: 'Mieloide', name: "Leucemia Mielomonocítica Crónica (LMMC)",
+                params: "Monocitosis absoluta >1 x 10⁹/L persistente (mínimo 3 meses). LDH frecuentemente elevada. Anemia y esplenomegalia.",
+                morph: "SP: Monocitos dsiplásicos (núcleos bizarros, granulación fina). Neutrófilos hiposegmentados. MO: Displasia en al menos 2 líneas celulares.",
+                studies: "Citometría: Reparto de monocitos (MO1 >94% es predictivo). Molecular: Mutaciones en TET2, SRSF2, ASXL1 (80% de los casos).",
+                algo: "LMMC-1 (<5% blastos en SP, <10% en MO) vs LMMC-2 (5-19% en SP, 10-19% en MO).",
+                imgUrl: "./img/4.jpg",
+                imgDesc: "Predominio de monocitos con núcleos plegados y citoplasma grisáceo con granulación fina."
+            },
+            {
+                id: 5, cat: 'Mieloide', name: "Leucemia Mielomonocítica Juvenil (LMMJ)",
+                params: "Linfadenopatías, xantomas cutáneos, hepatoesplenomegalia. Hb Fetal marcadamente elevada para la edad.",
+                morph: "Proliferación mieloide y monocítica con escasos blastos. Monocitos atípicos. Ausencia de BCR-ABL1.",
+                studies: "Molecular: Mutaciones somáticas o germinales en vía RAS (PTPN11, NF1, NRAS, KRAS, CBL). Hipersensibilidad de progenitores a GM-CSF in vitro.",
+                algo: "Asociación frecuente con Neurofibromatosis tipo 1 o Síndrome de Noonan.",
+                imgUrl: "./img/5.jpg",
+                imgDesc: "Proliferación mixta de precursores mieloides y monocitos en paciente pediátrico."
+            },
+            {
+                id: 6, cat: 'Mieloide', name: "LMA con Mínima Diferenciación (M0)",
+                params: "Sintomatología de insuficiencia medular aguda (fiebre, palidez, petequias). Frecuente en adultos mayores.",
+                morph: "Blastos medianos con cromatina laxa y nucléolos visibles. Sin gránulos ni bastones de Auer. Mieloperoxidasa (MPO) y Negro Sudán B negativos por citoquímica.",
+                studies: "Inmunofenotipo: CD33+, CD13+, CD117+, CD34+. Marcadores linfoides (CD3, CD19) negativos.",
+                algo: "Confirmación requerida mediante detección de MPO por citometría de flujo o antígeno CD13/CD33.",
+                imgUrl: "./img/6.jpg",
+                imgDesc: "Blastos mieloides agranulares de tamaño mediano con alta relación núcleo-citoplasma."
+            },
+            {
+                id: 7, cat: 'Mieloide', name: "LMA sin Maduración (M1)",
+                params: "Falla medular rápida. Recuentos leucocitarios muy variables.",
+                morph: "Mieloblastos >90% de las células no eritroides en MO. Menos del 10% muestran diferenciación a promielocitos o más allá. Bastones de Auer escasos.",
+                studies: "Citoquímica: >3% de blastos positivos para MPO. Inmunofenotipo: CD13, CD33, CD34, CD117, HLA-DR+.",
+                algo: "Diferenciar de LLA por positividad de MPO.",
+                imgUrl: "./img/7.jpg",
+                imgDesc: "Blastos mieloides con escasa granulación y ocasionales bastones de Auer delgados."
+            },
+            {
+                id: 8, cat: 'Mieloide', name: "LMA con Maduración (M2)",
+                params: "Presentación clásica de leucemia aguda. Correlación frecuente con anomalías citogenéticas favorables.",
+                morph: "Blastos mieloides entre 20-89% en MO. Presencia de >10% de células de la línea granulocítica madurando (promielocitos a neutrófilos). Bastones de Auer frecuentes.",
+                studies: "Citogenética: t(8;21)(q22;q22); RUNX1-RUNX1T1. Esta translocación define LMA independientemente del conteo de blastos.",
+                algo: "Los casos con t(8;21) suelen tener buen pronóstico y sensibilidad a dosis altas de Ara-C.",
+                imgUrl: "./img/8.jpg",
+                imgDesc: "Blastos con granulación evidente y células madurativas mieloides asociadas."
+            },
+            {
+                id: 9, cat: 'Mieloide', name: "LPA Microgranular t(15;17)",
+                params: "Leucocitosis inicial severa. Coagulopatía intravascular diseminada (CID) fulminante debido a liberación de factores procoagulantes por los blastos.",
+                morph: "Blastos con núcleos bilobulados, plegados o 'en alas de ángel'. Citoplasma con granulación muy fina, casi invisible al microscopio óptico.",
+                studies: "Confirmación urgente: FISH o RT-PCR para el gen de fusión PML-RARA. Citometría: CD33+, CD13+, CD117+, CD34- negativo, HLA-DR- negativo.",
+                algo: "Tratamiento inmediato con ATRA antes de confirmar molecular si la sospecha es alta.",
+                imgUrl: "./img/9.jpg",
+                imgDesc: "Promielocitos atípicos con núcleos contorneados/bilobulados y citoplasma hipogranular."
+            },
+            {
+                id: 10, cat: 'Mieloide', name: "LPA Clásica (Células de Faggot)",
+                params: "Pancitopenia e hipofibrinogenemia marcada. Tiempo de protrombina (TP) y TTPa prolongados.",
+                morph: "Promielocitos atípicos con citoplasma lleno de gránulos azurófilos densos. Presencia de 'Células de Faggot' (haces de múltiples bastones de Auer acumulados).",
+                studies: "Citogenética: t(15;17)(q24.1;q21.2). Inmunofenotipo idéntico a variante microgranular (HLA-DR negativo).",
+                algo: "La presencia de abundantes bastones de Auer es patognomónica de linaje mieloide diferenciado.",
+                imgUrl: "./img/10.jpg",
+                imgDesc: "Célula de Faggot mostrando múltiples bastones de Auer dispuestos en haces dentro del citoplasma."
+            },
+            {
+                id: 11, cat: 'Mieloide', name: "LMA Mielomonocítica (M4)",
+                params: "Hiperplasia gingival, afectación del SNC y lesiones cutáneas (cloromas).",
+                morph: ">20% de blastos en MO, de los cuales >20% son mieloblastos y >20% son precursores monocíticos (monoblastos/promonocitos).",
+                studies: "Citoquímica: Doble esterase (Naftol AS-D cloroacetato y Alfa-naftil acetato) positiva. Citogenética: inv(16)(p13.1q22) o t(16;16).",
+                algo: "Variante M4eo: Presencia de eosinófilos con gránulos basófilos atípicos en MO.",
+                imgUrl: "./img/11.jpg",
+                imgDesc: "Mezcla de blastos mieloides y monocíticos con núcleos indentados y citoplasma basófilo."
+            },
+            {
+                id: 12, cat: 'Mieloide', name: "Leucemia Monoblástica Aguda (M5a)",
+                params: "Linfadenopatía, esplenomegalia, hemorragias cutáneas. Común en niños y adultos jóvenes.",
+                morph: ">80% de células de linaje monocítico en MO son monoblastos (células grandes, citoplasma basófilo con vacuolas, núcleos redondos con nucléolos prominentes).",
+                studies: "Esterasa inespecífica (NSE) fuertemente positiva. Inmunofenotipo: CD14, CD64, CD11b, CD36 positivos.",
+                algo: "Diferenciar de M5b por el grado de diferenciación (predominio de blastos vs promonocitos).",
+                imgUrl: "./img/12.jpg",
+                imgDesc: "Grandes monoblastos con núcleos redondos, nucléolos centrales y vacuolas citoplasmáticas."
+            },
+            {
+                id: 13, cat: 'Mieloide', name: "Leucemia Monocítica Aguda (M5b)",
+                params: "Presentación similar a M5a, con mayor tendencia a infiltración tisular.",
+                morph: "Predominio de promonocitos (>80% de la línea monocítica). Los promonocitos tienen núcleos más contorneados y cerebriformes que los monoblastos.",
+                studies: "Marcadores monocíticos CD14 y CD64 altamente sensibles por citometría.",
+                algo: "Asociación frecuente con translocaciones del gen MLL (KMT2A) en 11q23.",
+                imgUrl: "./img/13.jpg",
+                imgDesc: "Promonocitos predominantes con núcleos cerebriformes y plegamientos nucleares complejos."
+            },
+            {
+                id: 14, cat: 'Mieloide', name: "Leucemia Megacarioblástica Aguda (M7)",
+                params: "Pancitopenia grave. Común en niños con Síndrome de Down o como transformación de neoplasias mieloproliferativas.",
+                morph: "Megacarioblastos medianos con proyecciones citoplasmáticas (blebbing), cromatina reticular. MO con fibrosis reticulínica intensa (aspirado difícil).",
+                studies: "Inmunofenotipo: Expresión de marcadores plaquetarios CD41 (GIIb/IIIa), CD61 o CD42. MPO negativo.",
+                algo: "En niños con Down, considerar la Mielopoyesis Anormal Transitoria (TMD).",
+                imgUrl: "./img/14.jpg",
+                imgDesc: "Blastos con 'blebs' citoplasmáticos similares a la gemación plaquetaria."
+            },
+            {
+                id: 15, cat: 'Mieloide', name: "Leucemia Basofílica Aguda",
+                params: "Insuficiencia medular rápida. Síntomas de hiperhistaminemia (prurito, úlceras gástricas) en algunos casos.",
+                morph: "Blastos medianos con gránulos basófilos gruesos, irregulares, que muestran metacromasia con Azul de Toluidina.",
+                studies: "Inmunofenotipo: CD123, CD203c, CD11b y CD117+. MPO negativo por microscopía óptica.",
+                algo: "Entidad primaria extremadamente rara, debe distinguirse de la LMC en crisis blástica basofílica.",
+                imgUrl: "./img/15.jpg",
+                imgDesc: "Blastos basofílicos con gránulos gruesos metacromáticos distribuidos irregularmente."
+            },
+            {
+                id: 16, cat: 'Linfoide', name: "Leucemia Linfocítica Crónica (LLC-B)",
+                params: "Linfocitosis absoluta >5 x 10⁹/L persistente. Hipogammaglobulinemia (riesgo de infecciones encapsuladas). Hemólisis autoinmune (Coombs+).",
+                morph: "SP: Linfocitos pequeños maduros con cromatina 'en terrones' o 'en damero'. Presencia de sombras de Gumprecht (restos nucleares frágiles).",
+                studies: "Citometría: CD5+, CD19+, CD23+, CD20 (débil), CD200+. Expresión de sIg débil.",
+                algo: "Clasificación Rai/Binet. Transformación de Richter (a Linfoma Difuso de Células B Grandes).",
+                imgUrl: "./img/16.jpg",
+                imgDesc: "Frotis con abundantes linfocitos pequeños de cromatina densa y numerosas sombras de Gumprecht."
+            },
+            {
+                id: 17, cat: 'Linfoide', name: "Leucemia Prolinfocítica B (LPL-B)",
+                params: "Linfocitosis extrema (>100 x 10⁹/L). Esplenomegalia masiva y ausencia de adenopatías significativas.",
+                morph: "Prolinfocitos >55% en SP. Células de tamaño mediano con un nucléolo central prominente y citoplasma basófilo moderado.",
+                studies: "CD20 intenso, CD5 negativo (usualmente), CD23 negativo. Mutaciones en TP53 frecuentes.",
+                algo: "Curso clínico agresivo, pobre respuesta a quimioterapia convencional.",
+                imgUrl: "./img/17.jpg",
+                imgDesc: "Prolinfocitos con un nucléolo único y central muy evidente en núcleo redondo."
+            },
+            {
+                id: 18, cat: 'Linfoide', name: "Leucemia de Células Peludas (HCL)",
+                params: "Pancitopenia con monocitopenia severa casi patognomónica. Esplenomegalia masiva 'seca' (sin infartos).",
+                morph: "Linfocitos con proyecciones citoplasmáticas finas y núcleo ovalado ('pelos'). MO: Infiltración intersticial 'en huevo frito'.",
+                studies: "Inmunofenotipo: CD103+, CD11c+, CD25+, CD123+, Anexina A1+. Molecular: Mutación BRAF V600E presente en casi el 100%.",
+                algo: "Respuesta excelente a análogos de purinas (Cladribina).",
+                imgUrl: "./img/18.jpg",
+                imgDesc: "Linfocitos con proyecciones citoplasmáticas filiformes rodeando la célula."
+            },
+            {
+                id: 19, cat: 'Linfoide', name: "Linfoma Folicular (Fase Leucémica)",
+                params: "Adenopatías generalizadas. Linfocitosis incidental moderada.",
+                morph: "Centrocitos: Linfocitos pequeños con núcleos profundamente hendidos o angulados (cleaved cells).",
+                studies: "Citometría: CD10+, CD19+, CD20+, BCL-2+. Citogenética: t(14;18)(q32;q21).",
+                algo: "Diferenciar de LLC por CD5 negativo y núcleos hendidos.",
+                imgUrl: "./img/19.jpg",
+                imgDesc: "Linfocitos pequeños con núcleos 'cleaved' o hendiduras longitudinales marcadas."
+            },
+            {
+                id: 20, cat: 'Linfoide', name: "Linfoma de Burkitt (L3)",
+                params: "Masa abdominal o mandibular de rápido crecimiento. LDH extremadamente elevada (Síndrome de lisis tumoral espontáneo).",
+                morph: "Blastos de tamaño mediano con citoplasma intensamente basófilo y vacuolas lipídicas prominentes. MO: Imagen 'en cielo estrellado'.",
+                studies: "Citogenética: t(8;14)(q24;q32) involucrando al gen MYC. Ki-67 cercano al 100%.",
+                algo: "Emergencia oncológica; requiere quimioterapia de alta intensidad.",
+                imgUrl: "./img/20.jpg",
+                imgDesc: "Blastos con citoplasma azul profundo y vacuolización lipídica característica."
+            },
+            {
+                id: 21, cat: 'Linfoide', name: "Macroglobulinemia de Waldenström",
+                params: "Anemia, síndrome de hiperviscosidad (visión borrosa, cefalea), crioglobulinemia.",
+                morph: "MO: Infiltración por células linfoplasmocitoides (linfocitos con diferenciación plasmocítica).",
+                studies: "Pico monoclonal IgM (>3 g/dL). Molecular: Mutación MYD88 L265P (>90%). CD19+, CD20+, CD138-.",
+                algo: "A diferencia del Mieloma, no suele causar lesiones óseas líticas.",
+                imgUrl: "./img/21.jpg",
+                imgDesc: "Células linfoplasmocitoides mostrando núcleo excéntrico y halo perinuclear tenue."
+            },
+            {
+                id: 22, cat: 'Linfoide', name: "LLA de Precursores B (B-ALL)",
+                params: "Dolor óseo, fiebre, pancitopenia. Picos de incidencia en infancia (2-5 años).",
+                morph: "Linfoblastos L1 (pequeños uniformes) o L2 (grandes heterogéneos). Escaso citoplasma, cromatina fina, nucléolos inconspicuos.",
+                studies: "Inmunofenotipo: CD19+, TdT+, CD10+ (Common-ALL). Citogenética crucial: t(12;21) ETV6-RUNX1 (buen pronóstico) o t(9;22) (mal pronóstico).",
+                algo: "Presencia de CD10 (CALLA) es un marcador pronóstico positivo.",
+                imgUrl: "./img/22.jpg",
+                imgDesc: "Linfoblastos de aspecto monomorfo con cromatina laxa y escaso citoplasma."
+            },
+            {
+                id: 23, cat: 'Linfoide', name: "Leucemia de Células Plasmáticas (PCL)",
+                params: "Forma agresiva de discrasia de células plasmáticas. Insuficiencia renal y lesiones líticas difusas.",
+                morph: "Células plasmáticas circulantes >2 x 10⁹/L o >20% del recuento diferencial en SP.",
+                studies: "Inmunofenotipo: CD138+, CD38+, CD56+, CD19-. Restricción de cadena ligera (Kappa o Lambda).",
+                algo: "Puede ser primaria (de novo) o secundaria (evolución de un Mieloma).",
+                imgUrl: "./img/23.jpg",
+                imgDesc: "Abundantes plasmocitos en sangre periférica con núcleos excéntricos y citoplasma basófilo."
+            },
+            {
+                id: 24, cat: 'Linfoide', name: "Mieloma Múltiple (MM)",
+                params: "Hipercalcemia, fallo renal (riñón de mieloma), anemia, lesiones óseas en 'sacabocados'.",
+                morph: "MO: >10% de plasmocitos. Presencia de células de Mott (racimos de Ig), cuerpos de Russell.",
+                studies: "Electroforesis de proteínas: Pico M. Inmunofijación: Cadena pesada IgG (frecuente) o IgA. Ratio sFLC >100.",
+                algo: "Criterios SLAM (60% plasmocitos, ratio cadenas ligeras >100, >1 lesión en RM).",
+                imgUrl: "./img/24.jpg",
+                imgDesc: "Médula ósea con infiltración de plasmocitos atípicos y ocasionales células de Mott."
+            },
+            {
+                id: 25, cat: 'Linfoide', name: "LLA de Precursores T (T-ALL)",
+                params: "Masa mediastínica (timo) que causa estridor o síndrome de vena cava superior. Leucocitosis muy alta.",
+                morph: "Linfoblastos T con núcleos convolutos. Morfología a menudo indistinguible de B-ALL por microscopía.",
+                studies: "Inmunofenotipo: CD3 citoplasmático+, CD7+, CD2+, CD5+. TdT variable.",
+                algo: "Frecuente en varones adolescentes; mayor riesgo de infiltración al SNC.",
+                imgUrl: "./img/25.jpg",
+                imgDesc: "Linfoblastos con núcleos marcadamente irregulares y convolutos."
+            },
+            {
+                id: 26, cat: 'Linfoide', name: "Síndrome de Sézary",
+                params: "Tríada: Eritrodermia exfoliativa, linfadenopatía y células de Sézary en sangre.",
+                morph: "Linfocitos T pequeños a medianos con núcleos cerebriformes (hendiduras profundas y complejas).",
+                studies: "Citometría: Población T CD4+ con pérdida de marcadores T maduros (CD7-, CD26-). Ratio CD4/CD8 >10.",
+                algo: "Representa la fase leucémica de la Micosis Fungoide.",
+                imgUrl: "./img/26.jpg",
+                imgDesc: "Célula de Sézary con núcleo cerebriforme característico en frotis de sangre periférica."
+            },
+            {
+                id: 27, cat: 'Anemia', name: "Anemia Ferropénica",
+                params: "Hb baja, VCM <80 fL, HCM <27 pg. ADE (RDW) elevado. Ferritina <15-30 ng/mL.",
+                morph: "Microcitosis, hipocromía marcada (anulocitos-leptocitos). Presencia de eliptocitos hipocrómicos (células en forma alargada).",
+                studies: "Recuento absoluto de Reticulocitos y Cinetica de hierro: Hierro sérico bajo, Capacidad Total de Fijación (TIBC) alta, Saturación de Transferrina <16%.",
+                algo: "La elevación del RDW es un marcador temprano que la diferencia de la Talasemia menor.",
+                imgUrl: "./img/27.jpg",
+                imgDesc: "Hematíes pequeños, pálidos (anulocitos) y leptocitos."
+            },
+            {
+                id: 28, cat: 'Anemia', name: "Anemia Sideroblástica (RARS)",
+                params: "Anemia moderada, a menudo macrocítica o dimórfica. Saturación de hierro elevada.",
+                morph: "SP: Población doble de eritrocitos (unos normales y otros hipocrómicos). Punteado basófilo.",
+                studies: "MO: Tinción de Perls muestra >15% de sideroblastos en anillo (hierro mitocondrial rodeando el núcleo). Mutación SF3B1.",
+                algo: "Puede ser hereditaria (ligada al X) o adquirida (parte de un Síndrome Mielodisplásico).",
+                imgUrl: "./img/28.jpg",
+                imgDesc: "Tinción de Perls en médula ósea revelando sideroblastos en anillo (puntos azules rodeando el núcleo)."
+            },
+            {
+                id: 29, cat: 'Anemia', name: "Beta Talasemia Menor (Rasgo)",
+                params: "Hb levemente baja (10-12). VCM muy bajo (60-70 fL). Recuento de hematíes elevado (Eritrocitosis microcítica).",
+                morph: "Microcitosis uniforme, dianocitos-codocitos (células en diana) ocasionales, punteado basófilo fino.",
+                studies: "Electroforesis de Hb: HbA2 elevada (>3.5%). HbF ligeramente elevada (1-5%).",
+                algo: "Índice de Mentzer (VCM/RBC) < 13 es altamente sugestivo de talasemia.",
+                imgUrl: "./img/29.jpg",
+                imgDesc: "Microcitosis hipocrómica monomorfa con presencia de dianocitos-codocitos dispersos."
+            },
+            {
+                id: 30, cat: 'Anemia', name: "Beta Talasemia Intermedia",
+                params: "Anemia moderada (Hb 7-10 g/dL). Hepatoesplenomegalia y cambios óseos leves por expansión medular.",
+                morph: "Anisopoiquilocitosis marcada, dianocitos numerosos, eritroblastos circulantes.",
+                studies: "Electroforesis: HbA variable, HbF 20-100%, HbA2 variable.",
+                algo: "No requiere transfusiones regulares, pero puede desarrollar sobrecarga de hierro por absorción intestinal.",
+                imgUrl: "./img/30.jpg",
+                imgDesc: "Frotis con anisopoiquilocitosis severa, eritroblastos ortocromáticos y dianocitos."
+            },
+            {
+                id: 31, cat: 'Anemia', name: "Beta Talasemia Mayor (Cooley)",
+                params: "Anemia severa (Hb <7) detectable a los 6 meses de vida. Facies talasémica (cráneo en cepillo), retraso del crecimiento.",
+                morph: "Hipocromía extrema, dianocitos-codocitos masivos, esquistocitos, abundantes eritroblastos ortocromáticos.",
+                studies: "Electroforesis: HbF >90%, HbA2 variable, HbA ausente o mínima.",
+                algo: "Requiere transfusiones crónicas y quelación de hierro obligatoria.",
+                imgUrl: "./img/31.jpg",
+                imgDesc: "Poiquilocitosis extrema con abundantes eritroblastos y fragmentación celular."
+            },
+            {
+                id: 32, cat: 'Anemia', name: "Alfa Talasemia Menor (Rasgo)",
+                params: "Microcitosis y hipocromía sin anemia significativa. Similar a Beta-rasgo.",
+                morph: "Hematíes pequeños, dianocitos escasos.",
+                studies: "Electroforesis: Normal en adultos. Diagnóstico por exclusión o genética (deleción de 2 genes alfa: --/aa o -a/-a).",
+                algo: "Diferencial con ferropenia; el hierro es normal.",
+                imgUrl: "./img/32.jpg",
+                imgDesc: "Hematíes microcíticos sin mayor alteración morfológica, frotis 'limpio'."
+            },
+            {
+                id: 33, cat: 'Anemia', name: "Enfermedad por HbH (Alfa-Talasemia)",
+                params: "Anemia hemolítica crónica moderada. Esplenomegalia.",
+                morph: "Anisocitosis, dianocitos, policromasia. Tinción Azul de Cresil: Hematíes con 'pelota de golf' (precipitados de cadenas beta4).",
+                studies: "Electroforesis: Presencia de banda de HbH (rápida). Genética: 3 genes alfa delecionados (--/-a).",
+                algo: "Riesgo de crisis hemolíticas ante infecciones o fármacos oxidantes.",
+                imgUrl: "./img/33.jpg",
+                imgDesc: "Hematíes teñidos con azul de cresil mostrando precipitados granulares (HbH)."
+            },
+            {
+                id: 34, cat: 'Anemia', name: "Hemoglobinopatía E (Rasgo/Anemia)",
+                params: "Microcitosis extrema (VCM <65) con anemia mínima o nula. Muy prevalente en Asia.",
+                morph: "Dianocitos muy abundantes (target cells).",
+                studies: "Electroforesis/HPLC: Presencia de HbE (migra con A2 en electroforesis alcalina).",
+                algo: "La combinación HbE/Beta-talasemia produce un cuadro clínico de Talasemia Mayor.",
+                imgUrl: "./img/34.jpg",
+                imgDesc: "Dianocitos prominentes en un frotis marcadamente microcítico."
+            },
+            {
+                id: 35, cat: 'Anemia', name: "Hemoglobina Lepore",
+                params: "Fenotipo clínico de Beta-talasemia (menor o mayor según cigosidad).",
+                morph: "Microcitosis, hipocromía.",
+                studies: "Electroforesis: Banda característica Lepore (8-15%). Es una hemoglobina de fusión delta-beta.",
+                algo: "Causada por un entrecruzamiento desigual durante la meiosis.",
+                imgUrl: "./img/35.jpg",
+                imgDesc: "Microcitosis e hipocromía indistinguible de beta-talasemia por morfología."
+            },
+            {
+                id: 36, cat: 'Anemia', name: "Anemia por Inflamación Crónica",
+                params: "Anemia normocítica (VCM 80-85), ferritina normal o alta, hierro sérico bajo.",
+                morph: "Generalmente normocítica normocrómica. Puede volverse microcítica en fases tardías.",
+                studies: "Hepcidina elevada (bloquea Ferroportina). Capacidad de fijación de hierro (TIBC) baja.",
+                algo: "Asociada a IL-6 elevada. El hierro está 'atrapado' en macrófagos.",
+                imgUrl: "./img/36.jpg",
+                imgDesc: "Frotis normocrómico con ocasionales neutrófilos con granulación tóxica si hay infección activa."
+            },
+            {
+                id: 37, cat: 'Anemia', name: "Anemia por Deficiencia de G6PD",
+                params: "Hemólisis aguda intravascular tras ingerir habas, fármacos (sulfas, antipalúdicos) o infecciones.",
+                morph: "Degmacitos o células mordidas (hendidura semicircular), células en ampolla (glóbulos rojos con protuberancia o vacuola, como una burbuja). Cuerpos de Heinz (precipitados de Hb) visibles con tinciones supravitales.",
+                studies: "Niveles enzimáticos de G6PD (medir fuera de la crisis, ya que los reticulocitos tienen niveles normales).",
+                algo: "Herencia ligada al cromosoma X.",
+                imgUrl: "./img/37.jpg",
+                imgDesc: "Hematíes con aspecto de mordida (bite cells)."
+            },
+            {
+                id: 38, cat: 'Anemia', name: "Anemia Hemolítica Autoinmune (Anticuerpos Calientes)",
+                params: "Anemia hemolítica extravascular de inicio brusco. Ictericia, DHL elevada, haptoglobina baja.",
+                morph: "Abundantes esferocitos (pequeños, densos, sin halo central). Policromasia (reticulocitosis).",
+                studies: "Prueba de Coombs Directo (DAT): Positivo para IgG (y a veces C3d).",
+                algo: "Asociada a LLC, Lupus o fármacos (alfa-metildopa).",
+                imgUrl: "./img/38.jpg",
+                imgDesc: "Esferocitos densos sin aclaramiento central y policromasia (hematíes jóvenes azulados)."
+            },
+            {
+                id: 39, cat: 'Anemia', name: "Anemia Hemolítica por Crioaglutininas",
+                params: "Acrocianosis (dedos/orejas azules con el frío). Hemólisis intravascular leve.",
+                morph: "Autoaglutinación eritrocitaria en el frotis (racimos). Si se calienta a 37°C, la aglutinación desaparece.",
+                studies: "Coombs Directo: Positivo solo para C3d. Título de crioaglutininas (IgM) elevado.",
+                algo: "Asociada a Mycoplasma pneumoniae o Linfomas.",
+                imgUrl: "./img/39.jpg",
+                imgDesc: "Hematíes agrupados en racimos irregulares (autoaglutinación) por efecto de IgM fría."
+            },
+            {
+                id: 40, cat: 'Anemia', name: "Anemia Hemolítica por Malaria (P. falciparum)",
+                params: "Fiebre cíclica, escalofríos, anemia hemolítica, ictericia. Riesgo de malaria cerebral.",
+                morph: "Trofozoítos en forma de anillo fino (a veces múltiples por hematíe). Gametocitos en forma de banana o semiluna.",
+                studies: "Gota gruesa y frotis de sangre periférica (Gold Standard). Test rápido de antígeno (HRP2).",
+                algo: "P. falciparum parasita hematíes de todas las edades, causando parasitemias altas.",
+                imgUrl: "./img/40.jpg",
+                imgDesc: "Inclusiones citoplasmáticas en los hematíes parasitados por Plasmodium falciparum (en su mayoría formas anilladas correspondientes a trofozoitos). Se observan también gránulos de pigmento de hemozoína en el interior de un neutrófilo (manchas de Maurer)."
+            },
+            {
+                id: 41, cat: 'Anemia', name: "Microangiopatías (MAHA/PTT/SUH)",
+                params: "Pentada: Anemia, trombocitopenia, fiebre, fallo renal, síntomas neurológicos.",
+                morph: "Esquistocitos masivos (>1-2%). Ausencia de plaquetas en el frotis. Policromasia.",
+                studies: "Pruebas de coagulación (TP, TTPa) normales. Actividad ADAMTS13 <10%.",
+                algo: "Emergencia médica: requiere recambio plasmático (plasmaféresis).",
+                imgUrl: "./img/41.jpg",
+                imgDesc: "Abundantes esquistocitos (triangulares, en casco) y trombocitopenia marcada."
+            },
+            {
+                id: 42, cat: 'Anemia', name: "Anemia Diseritropoyética Congénita Tipo II (HEMPAS)",
+                params: "Anemia normocítica hereditaria, ictericia, esplenomegalia, riesgo de cirrosis por hierro.",
+                morph: "Médula Ósea: >10% de eritroblastos policromatófilos binucleados o multinucleados. 'Doble membrana' en microscopía electrónica.",
+                studies: "Prueba de Ham (Suero acidificado): POSITIVA (lisis con sueros compatibles). Electroforesis de proteínas de membrana: Banda 3 anómala.",
+                algo: "Causada por mutaciones en el gen SEC23B.",
+                imgUrl: "./img/42.jpg",
+                imgDesc: "Eritroblastos de médula ósea con dos o más núcleos (eritropoyesis ineficaz)."
+            },
+            {
+                id: 43, cat: 'Anemia', name: "Crisis Aplásica por Parvovirus B19",
+                params: "Cese súbito de la producción de glóbulos rojos en pacientes con hemólisis previa (Falciformes, Esferocitosis).",
+                morph: "SP: Ausencia total de reticulocitos. MO: Pronormoblastos gigantes con inclusiones virales intranucleares.",
+                studies: "Serología (IgM) o PCR para DNA de Parvovirus B19.",
+                algo: "El virus infecta directamente a los precursores eritroides mediante el antígeno P.",
+                imgUrl: "./img/43.jpg",
+                imgDesc: "Proeritroblastos gigantes y con inclusiones nucleares en paciente con infección por parvovirus B19."
+            },
+            {
+                id: 44, cat: 'Anemia', name: "Anemia por Enfermedad Renal",
+                params: "Anemia normocítica proporcional al grado de uremia. TFG <30 mL/min.",
+                morph: "Equinocitos (células en fresa o Burr cells) con espículas cortas y uniformes.",
+                studies: "Niveles de Eritropoyetina (EPO) inapropiadamente bajos para el nivel de anemia.",
+                algo: "Causada por déficit de producción de EPO en las células peritubulares renales.",
+                imgUrl: "./img/44.jpg",
+                imgDesc: "Presencia de equinocitos (eritrocitos con proyecciones uniformes) asociados a uremia."
+            },
+            {
+                id: 45, cat: 'Anemia', name: "Anemia por Hipotiroidismo",
+                params: "Fatiga, bradicardia, piel seca. Anemia leve a moderada.",
+                morph: "Frotis generalmente normal (normocítica). Ocasionalmente macrocitosis o estomatocitos.",
+                studies: "Perfil tiroideo: TSH elevada, T4 libre baja.",
+                algo: "La anemia es una adaptación a la reducción del consumo de oxígeno tisular.",
+                imgUrl: "./img/45.jpg",
+                imgDesc: "Morfología eritrocitaria normal u ocasionalmente macrocítica pálida."
+            },
+            {
+                id: 46, cat: 'Anemia', name: "Anemia Aplásica Grave",
+                params: "Pancitopenia: Neutrófilos <0.5, Plaquetas <20k, Reticulocitos <20k.",
+                morph: "MO: Celularidad <25%. El espacio medular está reemplazado por tejido adiposo. No hay células anómalas.",
+                studies: "Biopsia de Médula Ósea: Diagnóstico definitivo. Descartar HPN asociada (citometría de flujo CD55/CD59).",
+                algo: "Tratamiento: Trasplante de médula ósea o inmunosupresión (ATG/Ciclosporina).",
+                imgUrl: "./img/46.jpg",
+                imgDesc: "Biopsia de médula ósea hipocelular, dominada por espacios grasos y escasos linfocitos."
+            },
+            {
+                id: 47, cat: 'Anemia', name: "Anemia Mieloptísica (Infiltración)",
+                params: "Anemia con reacción leucoeritroblástica (presencia de formas inmaduras de ambas series en sangre).",
+                morph: "Dacriocitos (lágrimas), eritroblastos ortocromáticos, mielocitos y metamielocitos en sangre periférica.",
+                studies: "BMO: Muestra infiltración por tumores sólidos (mama, próstata), fibrosis o granulomas. Descartar deficiencias nutricionales, causas genéticas y otras causas de insuficiencia de la médula ósea",
+                algo: "La presencia de dacriocitos sugiere distorsión de la arquitectura medular.",
+                imgUrl: "./img/47.jpg",
+                imgDesc: "Dacriocitos (lágrimas) y eritroblastos circulantes indicativos de ocupación medular."
+            },
+            {
+                id: 48, cat: 'Anemia', name: "Esferocitosis Hereditaria",
+                params: "Ictericia neonatal, esplenomegalia, cálculos biliares prematuros. CHCM elevada (>36 g/dL).",
+                morph: "Esferocitos de diversos tamaños, policromasia marcada.",
+                studies: "Prueba de fijación de la Eosina-5-maleimida (EMA) por citometría. Fragilidad Osmótica aumentada.",
+                algo: "Defectos en proteínas de unión vertical: Anquirina (más común), Banda 3 o Espectrina.",
+                imgUrl: "./img/48.jpg",
+                imgDesc: "Numerosos microesferocitos densos e intensamente coloreados."
+            },
+            {
+                id: 49, cat: 'Anemia', name: "Eliptocitosis Hereditaria",
+                params: "Generalmente asintomática. Hemólisis en solo el 10% de los casos.",
+                morph: ">25% de eliptocitos (hematíes ovalados a alargados en forma de puro).",
+                studies: "Ectocitometría de gradiente osmótico. Análisis de proteínas de membrana.",
+                algo: "Defectos en proteínas de unión horizontal: Espectrina alfa/beta o Proteína 4.1.",
+                imgUrl: "./img/49.jpg",
+                imgDesc: "Predominio de hematíes de forma elíptica u ovalada alargada."
+            },
+            {
+                id: 50, cat: 'Anemia', name: "Piropoiquilocitosis Hereditaria",
+                params: "Hemólisis grave y microcitosis extrema (VCM 50-60).",
+                morph: "Fragmentación eritrocitaria masiva, microesferocitos, eliptocitos. Aspecto similar a una quemadura severa.",
+                studies: "Prueba de incubación a 45°C: Los hematíes se fragmentan (normal resiste hasta 49°C).",
+                algo: "Variante severa de eliptocitosis (homocigota o doble heterocigota).",
+                imgUrl: "./img/50.jpg",
+                imgDesc: "Frotis con poiquilocitosis extrema y hematíes fragmentados por inestabilidad térmica."
+            },
+            {
+                id: 51, cat: 'Anemia', name: "Estomatocitosis Hereditaria",
+                params: "Hemólisis crónica. Riesgo de trombosis post-esplenectomía.",
+                morph: "Estomatocitos (hematíes con una hendidura central clara en forma de boca o ranura).",
+                studies: "Hidrocitosis (hematíes hinchados, VCM alto, CHCM baja) o Xerocitosis (deshidratados).",
+                algo: "Alteración en la permeabilidad al Sodio y Potasio.",
+                imgUrl: "./img/51.jpg",
+                imgDesc: "Hematíes con aclaramiento central lineal en forma de 'boca'."
+            },
+            {
+                id: 52, cat: 'Anemia', name: "Ovalocitosis del Sudeste Asiático (SAO)",
+                params: "Fenotipo protector contra todas las formas de malaria.",
+                morph: "Ovalocitos grandes y rígidos con una o dos hendiduras transversales (stomata).",
+                studies: "Genética: Deleción de 27 pb en el gen SLC4A1 (Banda 3).",
+                algo: "La membrana es extremadamente rígida; los hematíes no pueden ser parasitados.",
+                imgUrl: "./img/52.jpg",
+                imgDesc: "Ovalocitos de gran tamaño con hendiduras transversas características."
+            },
+            {
+                id: 53, cat: 'Anemia', name: "Rasgo Falciforme (HbAS)",
+                params: "Portador sano. Hipostenuria ocasional. Hematuria indolora por necrosis papilar renal.",
+                morph: "Normal en condiciones estándar. Células falciformes solo si se induce hipoxia extrema.",
+                studies: "Electroforesis: HbA 55-60%, HbS 35-40%, HbA2 normal.",
+                algo: "Asesoramiento genético fundamental para prevenir anemia falciforme en descendencia.",
+                imgUrl: "./img/53.jpg",
+                imgDesc: "Morfología eritrocitaria normal en frotis rutinario; sin drepanocitos."
+            },
+            {
+                id: 54, cat: 'Anemia', name: "Anemia Falciforme (HbSS)",
+                params: "Crisis vaso-oclusivas (mano-pie en niños), asplenia funcional por infartos repetidos.",
+                morph: "Drepanocitos (células en hoz o media luna). Cuerpos de Howell-Jolly (indican asplenia).",
+                studies: "Electroforesis: HbS >90%, HbF variable, HbA ausente. Prueba de falciformación (Metabisulfito) positiva.",
+                algo: "La HbF protege contra la polimerización; la Hidroxiurea se usa para elevarla.",
+                imgUrl: "./img/54.jpg",
+                imgDesc: "Presencia de drepanocitos (células en hoz) y dianocitos en frotis sanguíneo."
+            },
+            {
+                id: 55, cat: 'Anemia', name: "S-Beta Talasemia",
+                params: "Clínica similar a HbSS pero con microcitosis marcada.",
+                morph: "Drepanocitos + dianocitos + microcitosis.",
+                studies: "HbS dominante, HbA2 elevada (>3.5%). En S-Beta0 no hay HbA; en S-Beta+ hay 10-25% de HbA.",
+                algo: "S-Beta0 es clínicamente indistinguible de la anemia falciforme pura.",
+                imgUrl: "./img/55.jpg",
+                imgDesc: "Combinación de drepanocitos, microcitosis y numerosos dianocitos."
+            },
+            {
+                id: 56, cat: 'Anemia', name: "Enfermedad por Hemoglobina C",
+                params: "Esplenomegalia moderada y hemólisis compensada.",
+                morph: "Dianocitos masivos (>50%). Cristales de HbC: Barras hexagonales o romboides oscuras intracelulares.",
+                studies: "Electroforesis: HbC >90%. En medio alcalino, HbC migra junto a HbA2.",
+                algo: "La HbC reduce la plasticidad del hematíe pero no causa crisis dolorosas como la S.",
+                imgUrl: "./img/56.jpg",
+                imgDesc: "Innumerables dianocitos y cristales romboidales oscuros (cristales de HbC)."
+            },
+            {
+                id: 57, cat: 'Anemia', name: "Enfermedad HbSC",
+                params: "Hemólisis leve. Alta incidencia de retinopatía proliferativa y necrosis avascular de fémur.",
+                morph: "Células 'SC': Hematíes plegados con proyecciones angulares (guante de béisbol). Dianocitos.",
+                studies: "Electroforesis: Cantidades aproximadamente iguales de HbS y HbC.",
+                algo: "A menudo diagnosticada en la edad adulta debido a su curso más leve.",
+                imgUrl: "./img/57.jpg",
+                imgDesc: "Hematíes con proyecciones angulares y plegamientos bizarros (células SC)."
+            },
+            {
+                id: 58, cat: 'Anemia', name: "Anemia Megaloblástica (B12/Folato)",
+                params: "Pancitopenia moderada, LDH muy alta (eritropoyesis ineficaz). Síntomas neurológicos (B12).",
+                morph: "Macroovalocitos (VCM >110). Neutrófilos hipersegmentados (>5 lóbulos en el 5% de células o uno con 6).",
+                studies: "Niveles séricos de B12/Folato. Ácido metilmalónico elevado (específico de B12).",
+                algo: "MO: Disincronía madurativa núcleo-citoplasma (núcleo inmaduro, citoplasma maduro).",
+                imgUrl: "./img/58.jpg",
+                imgDesc: "Neutrófilo hipersegmentado y macroovalocitos eritrocitarios."
+            },
+            {
+                id: 59, cat: 'Morfología', name: "Anomalía de Pelger-Huët",
+                params: "Condición benigna. Función de los neutrófilos intacta.",
+                morph: "Neutrófilos con núcleos bilobulados unidos por un filamento fino (gafas de Pince-nez) o sin lóbulos.",
+                studies: "Estudio de frotis familiar. Mutación en el gen del receptor de lámina B (LBR).",
+                algo: "Diferenciar de Pseudo-Pelger adquirido en Síndromes Mielodisplásticos.",
+                imgUrl: "./img/59.jpg",
+                imgDesc: "Neutrófilos con núcleo en forma de lentes de contacto o bilobulados 'pince-nez'."
+            },
+            {
+                id: 60, cat: 'Morfología', name: "Hipersegmentación Hereditaria (Undritz)",
+                params: "Sin anemia ni deficiencia vitamínica.",
+                morph: ">50% de los neutrórifilos tienen 4 o más lóbulos; muchos tienen 6-10 lóbulos.",
+                studies: "Persistencia a pesar de niveles normales de B12 y folato.",
+                algo: "Herencia autosómica dominante sin consecuencias clínicas, es decir, es un rasgo genético que no causa enfermedad, solo una alteración morfológica notable en el frotis sanguíneo.",
+                imgUrl: "./img/60.jpg",
+                imgDesc: "Neutrófilos con múltiples lóbulos nucleares (>6) en ausencia de macrocitosis."
+            },
+            {
+                id: 61, cat: 'Morfología', name: "Síndrome de Chediak-Higashi",
+                params: "Infecciones piógenas recurrentes, albinismo parcial, diátesis hemorrágica.",
+                morph: "Inclusiones gigantes (peroxidasas+) en neutrórifilos, eosinófilos y linfocitos. Son lisosomas fusionados.",
+                studies: "Genética: Mutación en LYST (CHS1). SP: Neutropenia y trombocitopenia leve.",
+                algo: "Fase acelerada linfoproliferativa similar a HLH suele ser fatal.",
+                imgUrl: "./img/61.jpg",
+                imgDesc: "Granulaciones púrpuras gigantes en el citoplasma de todos los leucocitos."
+            },
+            {
+                id: 62, cat: 'Morfología', name: "Anomalía de May-Hegglin",
+                params: "Trombocitopenia moderada con riesgo de sangrado variable.",
+                morph: "Macroplaquetas (del tamaño de hematíes). Inclusiones azul pálido en el citoplasma de neutrófilos (Cuerpos de Döhle-like).",
+                studies: "Inmunofluorescencia para miosina. Genética: Mutación MYH9.",
+                algo: "Las inclusiones son filamentos de miosina no muscular pesada.",
+                imgUrl: "./img/62.jpg",
+                imgDesc: "Macroplaqueta gigante y neutrófilo con inclusión citoplasmática basófila (Döhle-like)."
+            },
+            {
+                id: 63, cat: 'Morfología', name: "Enfermedad de Gaucher",
+                params: "Hepatoesplenomegalia masiva, citopenias, crisis óseas dolorosas (fémur en frasco de Erlenmeyer).",
+                morph: "MO: Células de Gaucher (macrófagos con citoplasma cargado de lípidos con aspecto de 'papel arrugado' o 'seda').",
+                studies: "Actividad de la enzima Beta-glucocerebrosidasa en leucocitos. Elevación de Quitotriosidasa.",
+                algo: "Tratamiento con Terapia de Reemplazo Enzimático (TRE).",
+                imgUrl: "./img/63.jpg",
+                imgDesc: "Macrófago gigante de médula ósea con citoplasma estriado tipo 'papel arrugado'."
+            },
+            {
+                id: 64, cat: 'Morfología', name: "Enfermedad de Hurler (MPS I)",
+                params: "Opacidad corneal, cifosis, retraso mental progresivo, facies tosca.",
+                morph: "Cuerpos de Reilly: Granulaciones denser, púrpuras, rodeadas por un halo claro en neutrófilos y linfocitos.",
+                studies: "Déficit de Alfa-L-iduronidasa. Excreción de dermatán y heparián sulfato en orina.",
+                algo: "Cuerpos de Reilly vs Granulación tóxica: Los de Reilly son permanentes y están en linfocitos.",
+                imgUrl: "./img/64.jpg",
+                imgDesc: "Granulaciones toscas (cuerpos de Reilly) en neutrófilos y linfocitos."
+            },
+            {
+                id: 65, cat: 'Morfología', name: "Enfermedad de Hunter (MPS II)",
+                params: "Similar a Hurler pero sin opacidad corneal. Sordera y comportamiento agresivo.",
+                morph: "Granulaciones basófilas prominentes (Cuerpos de Gasser) en linfocitos.",
+                studies: "Déficit de Iduronato-2-sulfatasa. Herencia ligada al X.",
+                algo: "MPS II.",
+                imgUrl: "./img/65.jpg",
+                imgDesc: "Linfocitos con granulaciones azurófilas densas (Gasser) asociadas a MPS."
+            },
+            {
+                id: 66, cat: 'Morfología', name: "Síndrome de Sanfilippo (MPS III)",
+                params: "Deterioro cognitivo y motor severo predominante sobre los cambios somáticos.",
+                morph: "Vacuolas citoplasmáticas y granulaciones azurófilos en linfocitos.",
+                studies: "Análisis enzimático específico para los subtipos A, B, C o D.",
+                algo: "MPS III.",
+                imgUrl: "./img/66.jpg",
+                imgDesc: "Linfocitos con múltiples vacuolas citoplasmáticas pequeñas y claras."
+            },
+            {
+                id: 67, cat: 'Morfología', name: "Síndrome de Morquio (MPS IV)",
+                params: "Displasia esquelética severa, inestabilidad atlantoaxial, inteligencia normal.",
+                morph: "Cuerpos de Reilly en granulocitos.",
+                studies: "Déficit de Galactosa-6-sulfatasa (IVA) o Beta-galactosidasa (IVB).",
+                algo: "MPS IV.",
+                imgUrl: "./img/67.jpg",
+                imgDesc: "Granulocitos con inclusiones granulares finas y persistentes."
+            },
+            {
+                id: 68, cat: 'Morfología', name: "Enfermedad de Maroteaux-Lamy (MPS VI)",
+                params: "Crecimiento deficiente, valvulopatías cardíacas, inteligencia normal.",
+                morph: "Inclusiones azurófilas prominentes en neutrófilos.",
+                studies: "Déficit de Arilsulfatasa B (N-acetilgalactosamina-4-sulfatasa).",
+                algo: "MPS VI.",
+                imgUrl: "./img/68.jpg",
+                imgDesc: "Neutrófilos con granulación púrpuras gruesa (tipo Reilly) muy densa."
+            },
+            {
+                id: 69, cat: 'Morfología', name: "Síndrome de Sly (MPS VII)",
+                params: "Edema fetal, hepatoesplenomegalia.",
+                morph: "Vacuolización granular en leucocitos.",
+                studies: "Déficit de Beta-glucuronidasa.",
+                algo: "MPS VII.",
+                imgUrl: "./img/69.jpg",
+                imgDesc: "Vacuolización citoplasmática marcada en leucocitos."
+            },
+            {
+                id: 70, cat: 'Morfología', name: "Gangliosidosis GM1",
+                params: "Fallo en el desarrollo, mancha rojo cereza en mácula.",
+                morph: "Linfocitos con vacuolas citoplasmáticas claras y pequeñas.",
+                studies: "Déficit de Beta-galactosidasa.",
+                algo: "Diferencial con Enfermedad de Tay-Sachs.",
+                imgUrl: "./img/70.jpg",
+                imgDesc: "Linfocitos vacuolados indistinguibles de otras enfermedades de depósito por morfología."
+            },
+            {
+                id: 71, cat: 'Morfología', name: "Enfermedad de Células I (Mucolipidosis II)",
+                params: "Presentación neonatal con cambios óseos severos y rasgos toscos.",
+                morph: "Inclusiones granulares densas en fibroblastos (I-cells).",
+                studies: "Déficit de N-acetilglucosamina-1-fosfotransferasa.",
+                algo: "Las enzimas lisosomales están elevadas en plasma pero bajas en las células.",
+                imgUrl: "./img/71.jpg",
+                imgDesc: "Fibroblastos con inclusiones citoplasmáticas densas granuladas."
+            },
+            {
+                id: 72, cat: 'Otros', name: "Púrpura Trombocitopénica (PTT)",
+                params: "Trombocitopenia severa (<20k). Anemia hemolítica microangiopática.",
+                morph: "Esquistocitos (helmet cells, fragmentos). Plaquetas ausentes.",
+                studies: "ADAMTS13 <10%. LDH muy elevada. Coombs Directo negativo.",
+                algo: "La inhibición de ADAMTS13 genera multímeros de VWF ultralargos.",
+                imgUrl: "./img/72.jpg",
+                imgDesc: "Fragmentación eritrocitaria severa (esquistocitos) y fondo sin plaquetas."
+            },
+            {
+                id: 73, cat: 'Otros', name: "Neuroblastoma Metastásico en MO",
+                params: "Niño con masa suprarrenal e insuficiencia medular.",
+                morph: "Nidos de células pequeñas, redondas y azules. Formación de 'Rosetas de Homer-Wright'.",
+                studies: "Catecolaminas urinarias elevadas. CD56+, Sinaptofisina+.",
+                algo: "Diferencial con LLA infantil.",
+                imgUrl: "./img/73.jpg",
+                imgDesc: "Células malignas pequeñas y azules organizadas en rosetas rodeando material fibrilar."
+            },
+            {
+                id: 74, cat: 'Otros', name: "Sarcoma de Ewing en MO",
+                params: "Tumor óseo primario con metástasis.",
+                morph: "Células redondas uniformes. Citoplasma con glucógeno (PAS positivo).",
+                studies: "Citogenética: t(11;22) EWS-FLI1.",
+                algo: "CD99 positivo fuerte y difuso.",
+                imgUrl: "./img/74.jpg",
+                imgDesc: "Infiltración por nidos de células redondas de citoplasma pálido PAS positivo."
+            },
+            {
+                id: 75, cat: 'Otros', name: "Mononucleosis Infecciosa (EBV)",
+                params: "Triada: Fiebre, linfadenopatía, faringitis. Serología Paul-Bunnell positiva.",
+                morph: "Linfocitosis con >10% de linfocitos atípicos (Células de Downey). Citoplasma basófilo que 'moldea' a los hematíes adyacentes.",
+                studies: "Serología: IgM anti-VCA. Carga viral EBV por PCR.",
+                algo: "Los linfocitos atípicos son células T CD8+ citotóxicas respondiendo a las células B infectadas.",
+                imgUrl: "./img/75.jpg",
+                imgDesc: "Linfocito atípico con citoplasma hiperbasófilo moldeado por los hematíes periféricos."
+            }
+        ];
+
+        const App = () => {
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedItem, setSelectedItem] = useState(null);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+
+            const filteredData = DATABASE.filter(item =>
+                item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.cat.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.morph.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            const getBadgeColor = (cat) => {
+                switch (cat) {
+                    case 'Mieloide': return 'bg-red-900 text-red-100 border-red-800';
+                    case 'Linfoide': return 'bg-zinc-800 text-zinc-100 border-zinc-700';
+                    case 'Anemia': return 'bg-rose-950 text-rose-100 border-rose-900';
+                    case 'Morfología': return 'bg-slate-800 text-slate-100 border-slate-700';
+                    case 'Otros': return 'bg-stone-800 text-stone-100 border-stone-700';
+                    default: return 'bg-gray-800 text-gray-100 border-gray-700';
+                }
+            };
+
+            const handleOpenDetail = (item) => {
+                setSelectedItem(item);
+                setIsModalOpen(true);
+            };
+
+            return (
+                <div className="min-h-screen bg-zinc-950 font-sans text-zinc-300 flex flex-col">
+                    <header className="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-40 shadow-xl">
+                        <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-red-700 p-3 rounded-2xl shadow-lg shadow-red-900/20 border border-red-600">
+                                    <Icon name="activity" size={32} className="text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black tracking-tighter text-white leading-none">
+                                        Hemato<span className="text-red-600">Vision</span>
+                                    </h1>
+                                    <p className="text-[10px] text-red-500 font-black uppercase tracking-[0.3em] mt-2">
+                                        Guía rápida de Hematología
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="relative w-full md:w-[450px]">
+                                <Icon name="search" size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar patología, morfología o genética..." 
+                                    className="w-full bg-zinc-950 border border-zinc-800 pl-12 pr-6 py-4 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600/50 focus:border-red-600 transition-all text-white placeholder:text-zinc-600 shadow-inner"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-12">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                            {filteredData.map(item => (
+                                <div 
+                                    key={item.id} 
+                                    onClick={() => handleOpenDetail(item)}
+                                    className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7 shadow-lg hover:shadow-red-900/10 hover:border-red-900/40 transition-all cursor-pointer group flex flex-col h-full relative overflow-hidden"
+                                >
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 blur-3xl -mr-12 -mt-12 group-hover:bg-red-600/10 transition-colors"></div>
+                                    <div className="flex justify-between items-center mb-5">
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border tracking-wider shadow-sm ${getBadgeColor(item.cat)}`}>
+                                            {item.cat}
+                                        </span>
+                                        <span className="text-[10px] text-zinc-600 font-mono font-bold tracking-widest">#{String(item.id).padStart(3, '0')}</span>
+                                    </div>
+                                    <h3 className="font-black text-white text-lg mb-3 group-hover:text-red-500 transition-colors leading-snug">{item.name}</h3>
+                                    <p className="text-[12px] text-zinc-400 line-clamp-3 leading-relaxed flex-grow font-medium">{item.morph}</p>
+                                    <div className="mt-6 pt-5 border-t border-zinc-800 flex items-center justify-between">
+                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Icon name="database" size={12} className="text-red-600" /> Analítica
+                                        </span>
+                                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center group-hover:bg-red-600 transition-colors shadow-sm">
+                                            <Icon name="chevron-right" size={16} className="text-zinc-400 group-hover:text-white transition-transform group-hover:translate-x-0.5" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </main>
+
+                    {isModalOpen && selectedItem && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setIsModalOpen(false)}></div>
+                            <div className="bg-zinc-900 w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-[2.5rem] relative shadow-[0_0_100px_rgba(220,38,38,0.15)] border border-zinc-800 flex flex-col">
+                                <div className="p-8 md:p-10 border-b border-zinc-800 flex justify-between items-start bg-zinc-900/50">
+                                    <div className="space-y-4">
+                                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border inline-block tracking-[0.2em] shadow-lg ${getBadgeColor(selectedItem.cat)}`}>
+                                            {selectedItem.cat}
+                                        </div>
+                                        <h2 className="text-3xl md:text-4xl font-black text-white leading-tight tracking-tighter">{selectedItem.name}</h2>
+                                    </div>
+                                    <button onClick={() => setIsModalOpen(false)} className="bg-zinc-800 p-3 rounded-2xl text-zinc-400 hover:text-white hover:bg-red-700 transition-all shadow-xl">
+                                        <Icon name="x" size={28} />
+                                    </button>
+                                </div>
+                                <div className="p-6 md:p-10 overflow-y-auto custom-scroll flex-grow bg-zinc-950/20">
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                                        
+                                        <div className="lg:col-span-5 space-y-6">
+                                            <div className="relative group overflow-hidden rounded-[2.5rem] border border-zinc-800 bg-black shadow-2xl">
+                                                <div className="absolute inset-0 micro-overlay z-10 opacity-70 pointer-events-none"></div>
+                                                <img 
+                                                    src={selectedItem.imgUrl} 
+                                                    alt={selectedItem.name}
+                                                    className="w-full h-[400px] object-cover img-zoom transition-transform duration-700"
+                                                    onError={(e) => { e.target.src = "https://via.placeholder.com/600x400/111/444?text=Microscopia+No+Disponible"; }}
+                                                />
+                                                <div className="absolute bottom-4 left-4 right-4 z-20 flex justify-center">
+                                                    <span className="text-[10px] font-black text-white uppercase tracking-widest bg-black/60 backdrop-blur-md px-5 py-2 rounded-full border border-white/10 shadow-lg">
+                                                        Fotografía de Microscopio Real
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-zinc-900 p-6 rounded-[1.8rem] border border-zinc-800 shadow-xl">
+                                                <h4 className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4">
+                                                    <Icon name="image" size={16} /> Hallazgo Citológico
+                                                </h4>
+                                                <p className="text-[14px] text-zinc-300 leading-relaxed font-medium italic">
+                                                    {selectedItem.imgDesc}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="lg:col-span-7 space-y-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <section className="bg-zinc-900 p-6 rounded-[2rem] border border-zinc-800 shadow-xl relative overflow-hidden">
+                                                    <div className="absolute top-0 left-0 w-1 h-full bg-red-600 opacity-50"></div>
+                                                    <h4 className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-red-500 mb-4">
+                                                        <Icon name="stethoscope" size={16} /> Parámetros
+                                                    </h4>
+                                                    <p className="text-[14px] text-zinc-300 leading-relaxed font-semibold">{selectedItem.params}</p>
+                                                </section>
+                                                <section className="bg-zinc-900 p-6 rounded-[2rem] border border-zinc-800 shadow-xl relative overflow-hidden">
+                                                    <div className="absolute top-0 left-0 w-1 h-full bg-zinc-700"></div>
+                                                    <h4 className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-4">
+                                                        <Icon name="microscope" size={16} /> Morfología
+                                                    </h4>
+                                                    <p className="text-[14px] text-zinc-400 leading-relaxed">{selectedItem.morph}</p>
+                                                </section>
+                                            </div>
+                                            <section className="bg-zinc-900 p-6 rounded-[2rem] border border-zinc-800 shadow-xl relative overflow-hidden">
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-red-900"></div>
+                                                <h4 className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-4">
+                                                    <Icon name="flask-conical" size={16} /> Estudios Diferenciales
+                                                </h4>
+                                                <p className="text-[14px] text-zinc-400 leading-relaxed">{selectedItem.studies}</p>
+                                            </section>
+                                            <section className="bg-gradient-to-br from-red-700 to-red-900 p-8 rounded-[2rem] shadow-2xl shadow-red-950 text-white relative overflow-hidden">
+                                                <div className="absolute inset-0 bg-black/10"></div>
+                                                <h4 className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.25em] text-red-100 mb-5 relative z-10">
+                                                    <Icon name="dna" size={18} /> Algoritmo Diagnóstico
+                                                </h4>
+                                                <p className="text-[15px] font-black leading-relaxed relative z-10 text-white drop-shadow-md">{selectedItem.algo}</p>
+                                            </section>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <footer className="bg-zinc-900 pt-16 pb-12 border-t border-zinc-800">
+                        <div className="max-w-7xl mx-auto px-6">
+                            <div className="grid md:grid-cols-2 gap-12 items-start mb-16">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 text-red-500 font-black text-xs uppercase tracking-[0.3em]">
+                                        <Icon name="shield-alert" size={18} /> Descargo de Responsabilidad
+                                    </div>
+                                    <div className="bg-zinc-950/50 p-6 rounded-[1.5rem] border border-zinc-800/50">
+                                        <p className="text-[10px] text-zinc-500 leading-relaxed text-justify font-medium">
+                                            HematoVision es una herramienta educativa y de consulta técnica dirigida exclusivamente a profesionales del área de la salud y laboratorio clínico. Toda la información contenida en esta plataforma se basa en guías internacionales actuales pero no constituye una recomendación médica. 
+                                            Las imágenes son referenciales y provienen de repositorios educativos abiertos como CellWiki y Atlas del GECH.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col md:items-end space-y-4">
+                                    <div className="flex items-center gap-5 bg-zinc-950 p-6 rounded-[2rem] border border-zinc-800 shadow-xl w-full md:w-auto">
+                                        <div className="bg-red-700/10 p-3 rounded-2xl border border-red-700/20">
+                                            <Icon name="user" size={28} className="text-red-600" />
+                                        </div>
+                                        <div>
+                                            <span className="text-zinc-600 text-[9px] font-black uppercase tracking-[0.3em] block mb-0.5">Autoría y Desarrollo</span>
+                                            <span className="text-white font-black text-xl tracking-tight">QFB. Ibrahim Rodriguez Marroquin</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="pt-8 border-t border-zinc-800/50 text-center flex flex-col items-center gap-3">
+                                <div className="flex items-center gap-2 text-zinc-600 font-black text-[9px] uppercase tracking-[0.4em]">
+                                    <Icon name="database" size={12} className="text-red-900/50" />  75 Casos de Alta Especialidad
+                                </div>
+                                <p className="text-[9px] text-zinc-700 font-bold uppercase tracking-widest">© 2025 QFB. Ibrahim Rodriguez Marroquin</p>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
